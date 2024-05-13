@@ -1,49 +1,34 @@
 buildscript {
 	ext {
-		springBootVersion = '2.4.0-SNAPSHOT'
+		springBootVersion = '3.2.0'
 	}
 	repositories {
 		mavenCentral()
 		maven {
-			url "https://plugins.gradle.org/m2/"
+			url 'https://plugins.gradle.org/m2/'
 		}
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
-		classpath('gradle.plugin.com.palantir.gradle.docker:gradle-docker:0.22.1')
+		classpath("com.palantir.gradle.docker:gradle-docker:0.35.0")
 	}
-
 }
 
 plugins {
-	id 'org.springframework.boot' version '2.4.0-SNAPSHOT'
-	id 'io.spring.dependency-management' version '1.0.10.RELEASE'
 	id 'java'
-	id 'com.palantir.docker' version '0.22.1'
+	id 'org.springframework.boot' version '3.2.0'
+	id 'io.spring.dependency-management' version '1.1.3'
+	id 'com.palantir.docker' version '0.35.0'
 }
 
-group = 'siecola'
-version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '15'
+//TODO - esse valor deve ser o mesmo do seu Docker Hub ID
+group = 'xthiagosant'
+//TODO - aqui é o lugar onde se configura a tag da imagem Docker a ser gerada
+version = '1.0.0'
 
-bootJar {
-	baseName = 'curso_aws_project01'
-	version =  '1.1.0'
-	mainClassName = "br.com.siecola.aws_project01.AwsProject01Application"
+java {
+	sourceCompatibility = '17'
 }
-
-task unpack(type: Copy) {
-	dependsOn bootJar
-	from(zipTree(tasks.bootJar.outputs.files.singleFile))
-	into("build/dependency")
-}
-docker {
-	name "${project.group}/${bootJar.baseName}"
-	tags "${bootJar.version}"
-	copySpec.from(tasks.unpack.outputs).into("dependency")
-	buildArgs(['DEPENDENCY': "dependency"])
-}
-
 
 repositories {
 	mavenCentral()
@@ -58,6 +43,22 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
-test {
+tasks.register('unpack', Copy) {
+	dependsOn bootJar
+	from(zipTree(tasks.bootJar.outputs.files.singleFile))
+	into("build/dependency")
+}
+
+//Já está preparado para gerar imagem no formato linux/amd64, inclusive em computadores com processadores ARM, como os novos Macbook.
+//A variável project.name deve ser configurada no arquivo settings.gradle
+docker {
+	name "${project.group}/${project.name}"
+	buildx true
+	platform 'linux/amd64'
+	copySpec.from(tasks.unpack.outputs).into('dependency')
+	buildArgs(['DEPENDENCY' : "dependency"])
+}
+
+tasks.named('test') {
 	useJUnitPlatform()
 }
